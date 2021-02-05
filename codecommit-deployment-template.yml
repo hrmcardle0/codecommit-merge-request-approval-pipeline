@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Parameters:
+  SNSEmailParam:
+    Type: String
+    Default: example@google.com
+    Description: SNS Topic Endpoint Email Address
+  CodeUriMergeRequestParam:
+    Type: String
+    Description: The full bucket URL to the MergeRequest Function, such as s3://[Your-Bucket]/Deployment.zip
+  CodeUriConfirmApiParam:
+    Type: String
+    Description: The full bucket URL to the ConfirmAPI Function, such as s3://[Your-Bucket]/Deployment.zip
+Resources:
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: "code-commit-queue3"
+      VisibilityTimeout: 240
+  SQSQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: 
+        - !Ref SQSQueue
+      PolicyDocument:
+        Statement:
+          -
+            Action:
+              - "SQS:*"
+            Effect: "Allow"
+            Resource: !Ref SQSQueue
+            Principal:
+              AWS: !Ref AWS::AccountId
+  LambdaMergeAlertFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      CodeUri: !Ref CodeUriMergeRequestParam
+      ReservedConcurrentExecutions: 30
+      Tracing: Active
+      Timeout: 120
+      Environment:
+        Variables:
+          APIUrl: "https://[IDENTIFIER].execute-api.us-east-1.amazonaws.com/[VERSION]?pr_id="
+          SNSTopic: !Ref SNSEmailParam
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17' 
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:GetObjectACL
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - codecommit:*
+                - sqs:*
+                - s3:*
+                - logs:*
+                - apigateway:*
+                - sns:*
+                - execute-api:Invoke
+                - execute-api:ManageConnections
+              Resource: '*'
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SQSQueue.Arn
+            BatchSize: 10
+            Enabled: true
+  LambdaConfirmFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.7
+      CodeUri: !Ref CodeUriConfirmApiParam
+      ReservedConcurrentExecutions: 30
+      Tracing: Active
+      Timeout: 120
+      Policies:
+        - AWSLambdaExecute
+        - Version: '2012-10-17' 
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:GetObjectACL
+              Resource: 'arn:aws:s3:::testing-stoneyhrm/*'
+            - Effect: Allow
+              Action:
+                - codecommit:*
+                - sqs:*
+                - s3:*
+                - logs:*
+                - apigateway:*
+                - sns:*
+                - execute-api:Invoke
+                - execute-api:ManageConnections
+              Resource: '*'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Method: get
+            Path: /
+            RequestParameters:
+              - method.request.querystring.pr_id:
+                  Required: false
+                  Caching: false
+              - method.request.querystring.repo_id:
+                  Required: false
+                  Caching: false
+  MergeRequestEventRule:
+    Type: 'AWS::Events::Rule'
+    Properties: Triggers upon a pull request state change
+    EventPattern:
+      source:
+        - "aws.codecommit"
+      detail-type:
+        - "CodeCommit Pull Request State Change"
+    State: "ENABLED"
+    Targets:
+      -
+        Arn: !GetAtt SQSQueue.Arn
