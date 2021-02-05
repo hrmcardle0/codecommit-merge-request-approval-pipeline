@@ -9,3 +9,7 @@ a codecomit pull-request state change and the other is trigger by an API gateway
 NOTE: Due to limited documentation out there, manual steps are required for deployment. Currently, the first function in the pipeline that is triggered by codecommit must have the API gateway URL set in it's environment
 variable. You cannot simply '!Ref' this in a SAM template as the API is created implicitly. Thus, after deploying this template, you must edit the MergeAlert function to include the API gateway URL that was created by the
 second function. 
+
+## **Solution Overview**
+
+![Solution Diagram](https://raw.githubusercontent.com/hrmcardle0/codecommit-merge-request-approval-pipeline/main/Solution-Diagram.png)
