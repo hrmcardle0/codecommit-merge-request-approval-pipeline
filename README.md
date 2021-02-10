@@ -12,4 +12,4 @@ second function.
 
 ## **Solution Overview**
 
-![Solution Diagram](https://raw.githubusercontent.com/hrmcardle0/codecommit-merge-request-approval-pipeline/main/Solution-Diagram.png)
+![Solution Diagram](https://raw.githubusercontent.com/hrmcardle0/codecommit-merge-request-approval-pipeline/main/Diagram.png)
